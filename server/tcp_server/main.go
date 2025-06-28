@@ -45,22 +45,28 @@ func handleConnection(conn net.Conn, serverLog *log.Logger) {
 	serverLog.Println("New connection accepted")
 
 	buffer := make([]byte, 1024)
-	n, err := conn.Read(buffer)
 
-	if err != nil {
-		serverLog.Println("Error reading from connection:", err)
-		return
+	for {
+		n, err := conn.Read(buffer)
+		if err != nil {
+			if err. Error() != "EOF" {
+				serverLog.Println("Error reading from the connection: ", err)
+			}
+			serverLog.Println("Connection closed by the client")
+			return
+		}
+
+		received := strings.TrimSpace(string(buffer[:n]))
+		serverLog.Println("Received data:", received)
+
+		response := fmt.Sprintf("Server received: %s", received)
+		_, err = conn.Write([]byte(response))
+	
+		if err != nil {
+			serverLog.Println("Error writing to connection:", err)
+			return
+		}
+		serverLog.Println("Sent message to client")
+
 	}
-
-	received := strings.TrimSpace(string(buffer[:n]))
-	serverLog.Println("Received data:", received)
-
-	response := "Message Received!"
-	_, err = conn.Write([]byte(response))
-
-	if err != nil {
-		serverLog.Println("Error writing to connection:", err)
-		return
-	}
-	serverLog.Println("Sent message to client")
 }

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -26,27 +26,32 @@ func main() {
 
 	defer conn.Close()
 
-	clientLog.Println("Connection with server established.")
+	clientLog.Println("Connection with proxy server established.")
 
-	message := "Hello server!"
-	_, err = conn.Write([]byte(message))
+	// start go routine: stdin -> server
+	go func() {
+		_, err := io.Copy(conn, os.Stdin)
+		if err != nil {
+			clientLog.Printf("Error copying stdin to server: %v", err)
+		}
+	}()
 
-	if err != nil {
-		clientLog.Println("Error writing to connection:", err)
-		return
-	}
-	clientLog.Println("Sent message to the server:", message)
+	// start go routine: server -> stdout
+	go func() {
+		buffer := make([]byte, 4096)
+		for {
+			n, err := conn.Read(buffer)
+			if err != nil {
+				if err != io.EOF {
+					clientLog.Printf("Error reading from server: %v", err)
+				}
+				break
+			}
+			data := buffer[:n]
+			clientLog.Printf("Received from server: %s", strings.TrimSpace(string(data)))
+			os.Stdout.Write(data)
+		}
+	}()
 
-	// Receive response from the server
-	buffer := make([]byte, 1024)
-	n, err := conn.Read(buffer)
-
-	if err != nil {
-		clientLog.Println("Error reading response from server:", err)
-		return
-	}
-
-	response := strings.TrimSpace(string(buffer[:n]))
-	clientLog.Println("Received response from server:", response)
-	fmt.Println("Message sent successfully!!")
+	select {}
 }
